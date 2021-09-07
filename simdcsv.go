@@ -19,7 +19,6 @@ package simdcsv
 import (
 	"bufio"
 	"bytes"
-	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
@@ -30,6 +29,8 @@ import (
 	"sync/atomic"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/minio/simdcsv/internal/csv"
 )
 
 // Below is the same interface definition from encoding/csv
@@ -58,6 +59,12 @@ type Reader struct {
 	// or the Unicode replacement character (0xFFFD).
 	// It must also not be equal to Comma.
 	Comment rune
+
+	// Quote character. Default '"'.
+	Quote rune
+
+	// QuoteEscape character. Default '"'.
+	QuoteEscape rune
 
 	// FieldsPerRecord is the number of expected fields per record.
 	// If FieldsPerRecord is positive, Read requires each record to
@@ -90,8 +97,10 @@ func validDelim(r rune) bool {
 // NewReader returns a new Reader that reads from r.
 func NewReader(r io.Reader) *Reader {
 	return &Reader{
-		Comma: ',',
-		r:     bufio.NewReader(r),
+		Comma:       ',',
+		Quote:       '"',
+		QuoteEscape: '"',
+		r:           bufio.NewReader(r),
 	}
 }
 
@@ -129,6 +138,8 @@ func (r *Reader) readAllStreaming() (out chan recordsOutput) {
 		rCsv.Comma = r.Comma
 		rCsv.FieldsPerRecord = r.FieldsPerRecord
 		rCsv.ReuseRecord = r.ReuseRecord
+		rCsv.Quote = r.Quote
+		rCsv.QuoteEscape = r.QuoteEscape
 		rcds, err := rCsv.ReadAll()
 		return recordsOutput{-1, rcds, err}
 	}
@@ -142,8 +153,11 @@ func (r *Reader) readAllStreaming() (out chan recordsOutput) {
 	}
 
 	if r.LazyQuotes ||
-		r.Comma != 0 && r.Comma > unicode.MaxLatin1 ||
-		r.Comment != 0 && r.Comment > unicode.MaxLatin1 {
+		(r.Comma != 0 && r.Comma > unicode.MaxLatin1) ||
+		(r.Comment != 0 && r.Comment > unicode.MaxLatin1) ||
+		(r.Quote != 0 && r.Quote > unicode.MaxLatin1) ||
+		(r.QuoteEscape != 0 && r.Quote > unicode.MaxLatin1) ||
+		(r.QuoteEscape != r.Quote) {
 		go func() {
 			out <- fallback(r.r)
 			close(out)
@@ -236,7 +250,7 @@ func (r *Reader) stage1Streaming(bufchan chan chunkIn, chunkSize int, masksSize 
 		postProcStream := make([]uint64, 0, ((chunkSize>>6)+1)*2)
 		masksStream := make([]uint64, masksSize)
 
-		masksStream, postProcStream, quoted = stage1PreprocessBufferEx(chunk.buf, uint64(r.Comma), quoted, &masksStream, &postProcStream)
+		masksStream, postProcStream, quoted = stage1PreprocessBufferEx(chunk.buf, uint64(r.Comma)|(uint64(r.Quote)<<8), quoted, &masksStream, &postProcStream)
 
 		header, trailer := uint64(0), uint64(0)
 
@@ -396,6 +410,8 @@ func (r *Reader) ReadAll() ([][]string, error) {
 		rCsv.Comma = r.Comma
 		rCsv.FieldsPerRecord = r.FieldsPerRecord
 		rCsv.ReuseRecord = r.ReuseRecord
+		rCsv.Quote = r.Quote
+		rCsv.QuoteEscape = r.QuoteEscape
 		return rCsv.ReadAll()
 	}
 

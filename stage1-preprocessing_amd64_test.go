@@ -253,7 +253,7 @@ func TestStage1PartialLoad(t *testing.T) {
 		postProc := make([]uint64, ((len(buf) >> 6) + 1))
 		input, output := stage1Input{}, stage1Output{}
 
-		processed, _ := stage1_preprocess_buffer(buf, ',', &input, &output, &postProc, 0, masks, 0)
+		processed, _ := stage1_preprocess_buffer(buf, defaultSeparator, &input, &output, &postProc, 0, masks, 0)
 
 		out := ""
 		if processed <= 64 {
@@ -314,7 +314,7 @@ RRobertt,"Pi,e",rob` + "\r\n" + `Kenny,"ho` + "\r\n" + `so",kenny
 
 	buf := []byte(data)
 
-	masks, postProc, _ := stage1PreprocessBuffer(buf, uint64(','), 0)
+	masks, postProc, _ := stage1PreprocessBuffer(buf, defaultSeparator, 0)
 
 	out := bytes.NewBufferString("")
 	fmt.Fprintf(out, "%064b%064b\n", bits.Reverse64(masks[0]), bits.Reverse64(masks[3+0]))
@@ -540,7 +540,7 @@ Ken,Thompson,ken
 
 func testStage1DeterminePostProcRows(t *testing.T, buf []byte) []postProcRow {
 
-	masks, postProc, _ := stage1PreprocessBuffer(buf, uint64(','), 0)
+	masks, postProc, _ := stage1PreprocessBuffer(buf, defaultSeparator, 0)
 	simdrecords, parsingError := stage2ParseBuffer(buf, masks, 0xa, nil)
 	if parsingError {
 		t.Errorf("testStage1DeterminePostProcRows: unexpected parsing error")
@@ -578,14 +578,14 @@ func testStage1DynamicAllocation(t *testing.T) {
 	{
 		input, output := stage1Input{}, stage1Output{}
 		// explicitly invoke stage 1 directly with single call
-		processed, _ := stage1_preprocess_buffer(bufSingleInvoc, uint64(','), &input, &output, &postProcSingleInvoc, 0, masks, 0)
+		processed, _ := stage1_preprocess_buffer(bufSingleInvoc, defaultSeparator, &input, &output, &postProcSingleInvoc, 0, masks, 0)
 		if processed < uint64(len(buf)) {
 			t.Errorf("testStage1DynamicAllocation: got %v, want %v", processed, len(buf))
 		}
 	}
 
 	postProc := make([]uint64, 0, 3) // small allocation, make sure we dynamically grow
-	masks, postProc, _ = stage1PreprocessBufferEx(buf, uint64(','), 0, nil, &postProc)
+	masks, postProc, _ = stage1PreprocessBufferEx(buf, defaultSeparator, 0, nil, &postProc)
 
 	if !reflect.DeepEqual(postProc, postProcSingleInvoc) {
 		t.Errorf("testStage1DynamicAllocation: got %v, want %v", postProc, postProcSingleInvoc)
@@ -597,6 +597,8 @@ func TestStage1DynamicAllocation(t *testing.T) {
 		testStage1DynamicAllocation(t)
 	})
 }
+
+const defaultSeparator = ','+(uint64('"')<<8)
 
 func TestStage1MasksBounds(t *testing.T) {
 
@@ -611,7 +613,7 @@ func TestStage1MasksBounds(t *testing.T) {
 	{
 		input, output := stage1Input{}, stage1Output{}
 
-		processed, masksWritten := stage1_preprocess_buffer(buf, uint64(','), &input, &output, &postProc, 0, masks, 0)
+		processed, masksWritten := stage1_preprocess_buffer(buf, defaultSeparator, &input, &output, &postProc, 0, masks, 0)
 
 		if processed/64 != masksWritten/3 {
 			panic("Sanity check fails: processed/64 != masksWritten/3")
@@ -632,7 +634,7 @@ func TestStage1MasksBounds(t *testing.T) {
 		outputStage1 := stage1Output{}
 
 		index := processed
-		processed, masksWritten = stage1_preprocess_buffer(buf, uint64(','), &inputStage1, &outputStage1, &postProcLoop, index, masksLoop, 0)
+		processed, masksWritten = stage1_preprocess_buffer(buf, defaultSeparator, &inputStage1, &outputStage1, &postProcLoop, index, masksLoop, 0)
 
 		if (processed-index)/64 != masksWritten/3 {
 			panic("Sanity check fails: (processed-index)/64 != masksWritten/3")
@@ -671,7 +673,7 @@ func TestStage1MasksLoop(t *testing.T) {
 
 	for {
 		index := processed
-		processed, masksWritten = stage1_preprocess_buffer(buf, uint64(','), &inputStage1, &outputStage1, &postProcLoop, index, masksLoop, 0)
+		processed, masksWritten = stage1_preprocess_buffer(buf, defaultSeparator, &inputStage1, &outputStage1, &postProcLoop, index, masksLoop, 0)
 
 		if (processed-index)/64 != masksWritten/3 {
 			panic("Sanity check fails: (processed-index)/64 != masksWritten/3")
@@ -730,6 +732,6 @@ func benchmarkStage1Preprocessing(b *testing.B, filename string) {
 
 	for i := 0; i < b.N; i++ {
 		postProc = postProc[:0]
-		stage1PreprocessBufferEx(buf, uint64(','), 0, &masks, &postProc)
+		stage1PreprocessBufferEx(buf, defaultSeparator, 0, &masks, &postProc)
 	}
 }

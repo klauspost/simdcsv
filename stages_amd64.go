@@ -21,8 +21,9 @@
 package simdcsv
 
 import (
-	"github.com/klauspost/cpuid"
 	"log"
+
+	"github.com/klauspost/cpuid/v2"
 )
 
 // Skeleton assembly routines
@@ -38,8 +39,7 @@ func stage2_parse()
 
 // SupportedCPU will return whether the CPU is supported.
 func SupportedCPU() bool {
-	const want = cpuid.AVX2
-	return cpuid.CPU.Features&want == want
+	return cpuid.CPU.Has(cpuid.AVX2)
 }
 
 //go:noescape

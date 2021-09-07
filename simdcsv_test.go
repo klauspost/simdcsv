@@ -18,7 +18,6 @@ package simdcsv
 
 import (
 	"bytes"
-	"encoding/csv"
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
@@ -29,6 +28,8 @@ import (
 	"strings"
 	"testing"
 	"unicode/utf8"
+
+	"github.com/minio/simdcsv/internal/csv"
 )
 
 //

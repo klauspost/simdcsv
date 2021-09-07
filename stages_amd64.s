@@ -54,7 +54,7 @@ GLOBL MASKTABLE<>(SB), 8, $64
 #define Y_CARRIAGE_R  Y3
 #define Y_NEWLINE     Y2
 
-// func stage1_preprocess_buffer(buf []byte, separatorChar uint64, input1 *stage1Input, output1 *stage1Output, postProc *[]uint64, offset uint64, masks []uint64, masksOffset uint64) (processed, masksWritten uint64)
+// func stage1_preprocess_buffer(buf []byte, separatorChars uint64, input1 *stage1Input, output1 *stage1Output, postProc *[]uint64, offset uint64, masks []uint64, masksOffset uint64) (processed, masksWritten uint64)
 TEXT ·stage1_preprocess_buffer(SB), 7, $0
 
 	MOVQ         $0x0a, AX                // character for newline
@@ -63,10 +63,11 @@ TEXT ·stage1_preprocess_buffer(SB), 7, $0
 	MOVQ         $0x0d, AX                // character for carriage return
 	MOVQ         AX, X3
 	VPBROADCASTB X3, Y_CARRIAGE_R
-	MOVQ         separatorChar+24(FP), AX // get character for separator
+	MOVQ         separatorChars+24(FP), AX // get character for separator
 	MOVQ         AX, X4
 	VPBROADCASTB X4, Y_SEPARATOR
-	MOVQ         $0x22, AX                // character for quote
+
+	SHRQ         $8, AX                // character for quote, in separatorChars
 	MOVQ         AX, X5
 	VPBROADCASTB X5, Y_QUOTE_CHAR
 
